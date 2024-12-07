@@ -40,12 +40,20 @@ class MyCallbacks : public BLECharacteristicCallbacks {
             String command = String(value.c_str());
 
             if (command.startsWith("COLOR:")) {
-                // Handle color command (hex format)
                 String hexColor = command.substring(6);
                 breathingMode = false;
                 long number = strtol(hexColor.c_str(), NULL, 16);
+                CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
+
                 for (int i = 0; i < NUM_STRIPS; i++) {
-                    fill_solid(leds[i], NUM_LEDS_PER_STRIP, CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF));
+                    CRGB stripColor = color;
+                    if (i != 3 && i != 7) {
+                        // Dim the color after conversion
+                        stripColor.nscale8(25);  // ~10% brightness (0-255)
+                    }
+                    for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
+                        leds[i][k] = stripColor;
+                    }
                 }
             }
             // else if (command == "ON") {
