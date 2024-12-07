@@ -100,16 +100,50 @@ function App() {
         }
     }, [])
 
+    const ZONES = [{
+        id: 0,
+        name: 'висок верх'
+    },{
+        id: 1,
+        name: 'брови'
+    },{
+        id: 2,
+        name: 'лоб'
+    },{
+        id: 3,
+        name: 'левый глаз'
+    },{
+        id: 4,
+        name: 'подбородок'
+    },{
+        id: 5,
+        name: 'клюв'
+    },{
+        id: 6,
+        name: 'щека'
+    },{
+        id: 7,
+        name: 'правый глаз'
+    },{
+        id: 8,
+        name: 'висок'
+    }]
+
     return <div>
         <h1>BLE LED Control</h1>
         <div id="status">Not Connected</div>
         <button className="button" onClick={manualConnect}>Connect</button>
         <br/><br/>
-        <input type="color" id="colorPicker" onChange={e => setStripColor(1, e.target.value)}/>
+        <input type="color" id="colorPicker" onChange={e => setColor(e.target.value)}/>
         <br/><br/>
-        <button className="button" onClick={() => sendCommand('ON')}>ON</button>
-        <button className="button" onClick={() => sendCommand('OFF')}>OFF</button>
-        <button className="button" onClick={() => sendCommand('BREATH')}>BREATHING</button>
+
+        {ZONES.map(zone => {
+            return <div>
+                {zone.name}
+                <input type="color" id={"colorPicker" + zone.id} onChange={e => setStripColor(zone.id, e.target.value)}/>
+                <br/><br/>
+            </div>
+        })}
     </div>
 }
 
