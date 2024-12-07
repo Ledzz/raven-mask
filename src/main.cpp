@@ -13,14 +13,22 @@
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
-
 #define NUM_STRIPS 9
 #define NUM_LEDS_PER_STRIP 11
 
+#define LEFT_EYE 3
+#define RIGHT_EYE 7
+
 CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
+
+enum MODE {
+    SIMPLE,
+    EYES
+};
+
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-bool breathingMode = false;
+MODE mode = SIMPLE;
 BLEServer *pServer = NULL;
 BLECharacteristic *pCharacteristic = NULL;
 
@@ -37,14 +45,13 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
 void setStripColor(int stripIndex, CRGB color) {
     CRGB stripColor = color;
-    if (stripIndex != 3 && stripIndex != 7) {
+    if (stripIndex != LEFT_EYE && stripIndex != RIGHT_EYE) {
         stripColor.nscale8(25);
     }
     for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
         leds[stripIndex][k] = stripColor;
     }
 }
-
 
 class MyCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
@@ -67,6 +74,13 @@ class MyCallbacks : public BLECharacteristicCallbacks {
                 long number = strtol(hexColor.c_str(), NULL, 16);
                 CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
                 setStripColor(stripIndex, color);
+            } else if (command.startsWith("MODE:")) {
+                String modeStr = command.substring(5);
+                if (modeStr == "SIMPLE") {
+                    mode = SIMPLE;
+                } else if (modeStr == "EYES") {
+                    mode = EYES;
+                }
             }
             // else if (command == "ON") {
             //   breathingMode = false;
@@ -88,8 +102,8 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 
 void solid() {
     for (int i = 0; i < NUM_STRIPS; i++) {
-        int value = (i == 3 || i == 7) ? 255 : 20;
-        int color = (i == 3 || i == 7) ? 0 : 160;
+        int value = (i == LEFT_EYE || i == RIGHT_EYE) ? 255 : 20;
+        int color = (i == LEFT_EYE || i == RIGHT_EYE) ? 0 : 160;
         for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
             leds[i][k] = CHSV(color, 255, value);
         }
@@ -139,6 +153,17 @@ void setup() {
     solid();
 }
 
+
+void updateEyes() {
+    int step = (millis() / 100) % 5;
+    for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
+        leds[RIGHT_EYE][k] = CRGB::Black;
+        leds[LEFT_EYE][k] = CRGB::Black;
+    }
+    leds[RIGHT_EYE][step] = CRGB::White;
+    leds[LEFT_EYE][step] = CRGB::White;
+}
+
 void loop() {
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // Give the bluetooth stack time to get ready
@@ -149,6 +174,10 @@ void loop() {
     // Connection established
     if (deviceConnected && !oldDeviceConnected) {
         oldDeviceConnected = deviceConnected;
+    }
+
+    if (mode == EYES) {
+        updateEyes();
     }
 
     FastLED.show();

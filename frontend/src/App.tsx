@@ -100,6 +100,10 @@ function App() {
         }
     }, [])
 
+    const MODES = [
+        "SIMPLE", "EYES"
+    ];
+
     const ZONES = [{
         id: 0,
         name: 'висок верх'
@@ -137,8 +141,12 @@ function App() {
         <input type="color" id="colorPicker" onChange={e => setColor(e.target.value)}/>
         <br/><br/>
 
+        {MODES.map(mode => {
+            return <button key={mode} className="button" onClick={() => sendCommand(`MODE:${mode}`)}>{mode}</button>
+        })}
+
         {ZONES.map(zone => {
-            return <div>
+            return <div key={zone.id}>
                 {zone.name}
                 <input type="color" id={"colorPicker" + zone.id} onChange={e => setStripColor(zone.id, e.target.value)}/>
                 <br/><br/>
