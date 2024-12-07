@@ -19,6 +19,7 @@
 
 CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
 bool deviceConnected = false;
+bool oldDeviceConnected = false;
 bool breathingMode = false;
 BLEServer *pServer = NULL;
 BLECharacteristic *pCharacteristic = NULL;
@@ -128,6 +129,17 @@ void setup() {
 }
 
 void loop() {
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500); // Give the bluetooth stack time to get ready
+        pServer->startAdvertising(); // Restart advertising
+        oldDeviceConnected = deviceConnected;
+    }
+
+    // Connection established
+    if (deviceConnected && !oldDeviceConnected) {
+        oldDeviceConnected = deviceConnected;
+    }
+
     FastLED.show();
     delay(10);
 }
