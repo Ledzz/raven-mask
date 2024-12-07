@@ -34,28 +34,39 @@ class MyServerCallbacks : public BLEServerCallbacks {
     }
 };
 
+
+void setStripColor(int stripIndex, CRGB color) {
+    CRGB stripColor = color;
+    if (stripIndex != 3 && stripIndex != 7) {
+        stripColor.nscale8(25);
+    }
+    for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
+        leds[stripIndex][k] = stripColor;
+    }
+}
+
+
 class MyCallbacks : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
         std::string value = pCharacteristic->getValue();
         if (value.length() > 0) {
             String command = String(value.c_str());
+            Serial.println(command);
 
             if (command.startsWith("COLOR:")) {
                 String hexColor = command.substring(6);
-                breathingMode = false;
                 long number = strtol(hexColor.c_str(), NULL, 16);
                 CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
 
                 for (int i = 0; i < NUM_STRIPS; i++) {
-                    CRGB stripColor = color;
-                    if (i != 3 && i != 7) {
-                        // Dim the color after conversion
-                        stripColor.nscale8(25);  // ~10% brightness (0-255)
-                    }
-                    for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
-                        leds[i][k] = stripColor;
-                    }
+                    setStripColor(i, color);
                 }
+            } else if (command.startsWith("SCOLOR:")) {
+                int stripIndex = command.substring(7, 8).toInt();
+                String hexColor = command.substring(9);
+                long number = strtol(hexColor.c_str(), NULL, 16);
+                CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
+                setStripColor(stripIndex, color);
             }
             // else if (command == "ON") {
             //   breathingMode = false;

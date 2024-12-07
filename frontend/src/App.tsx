@@ -1,7 +1,7 @@
 import './App.css'
-import {useCallback, useEffect} from "react";
+import {useCallback, useEffect, useRef} from "react";
 
-let characteristic = null;
+let characteristic: BluetoothRemoteGATTCharacteristic | undefined;
 const serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
@@ -24,20 +24,20 @@ function App() {
         }
     }, []);
 
-    const connectToDevice = useCallback(async (device) => {
+    const connectToDevice = useCallback(async (device: BluetoothDevice) => {
         const abortController = new AbortController();
 
-        device.addEventListener('advertisementreceived', async (event) => {
+        device.addEventListener('advertisementreceived', async (event: BluetoothAdvertisingEvent) => {
             log('> Received advertisement from "' + device.name + '"...');
             // Stop watching advertisements to conserve battery life.
             abortController.abort();
             log('Connecting to GATT Server from "' + device.name + '"...');
             try {
-                const server = await device.gatt.connect()
+                const server = await device.gatt?.connect()
                 log('> Bluetooth device "' + device.name + ' connected.');
 
-                const service = await server.getPrimaryService(serviceUuid);
-                characteristic = await service.getCharacteristic(characteristicUuid);
+                const service = await server?.getPrimaryService(serviceUuid);
+                characteristic = await service?.getCharacteristic(characteristicUuid);
                 document.getElementById('status').textContent = 'Connected!';
             } catch (error) {
                 log('Argh! ' + error);
@@ -67,16 +67,23 @@ function App() {
         }
     }, []);
 
-    useEffect(() => {autoConnect()}, [])
+    const startedRef = useRef(false);
 
-    const sendCommand = useCallback(async (command) => {
+    useEffect(() => {
+        if (!startedRef.current) {
+            autoConnect()
+        }
+        startedRef.current = true
+    }, [])
+
+    const sendCommand = useCallback(async (command: string) => {
         if (characteristic) {
             const encoder = new TextEncoder();
             await characteristic.writeValue(encoder.encode(command));
         }
     }, []);
 
-    const setColor = useCallback(async (color) => {
+    const setColor = useCallback(async (color: string) => {
         if (characteristic) {
             const command = 'COLOR:' + color.substring(1);
             const encoder = new TextEncoder();
@@ -84,12 +91,21 @@ function App() {
         }
     }, []);
 
+    const setStripColor = useCallback(async (strip: number, color: string) => {
+        const command = 'SCOLOR:' + strip + ':' + color.substring(1);
+
+        if (characteristic) {
+            const encoder = new TextEncoder();
+            await characteristic.writeValue(encoder.encode(command));
+        }
+    }, [])
+
     return <div>
         <h1>BLE LED Control</h1>
         <div id="status">Not Connected</div>
         <button className="button" onClick={manualConnect}>Connect</button>
         <br/><br/>
-        <input type="color" id="colorPicker" onChange={e => setColor(e.target.value)}/>
+        <input type="color" id="colorPicker" onChange={e => setStripColor(1, e.target.value)}/>
         <br/><br/>
         <button className="button" onClick={() => sendCommand('ON')}>ON</button>
         <button className="button" onClick={() => sendCommand('OFF')}>OFF</button>
