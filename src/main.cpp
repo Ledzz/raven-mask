@@ -23,7 +23,8 @@ CRGB leds[NUM_STRIPS][NUM_LEDS_PER_STRIP];
 
 enum MODE {
     SIMPLE,
-    EYES
+    EYES,
+    RANDOM
 };
 
 bool deviceConnected = false;
@@ -80,20 +81,10 @@ class MyCallbacks : public BLECharacteristicCallbacks {
                     mode = SIMPLE;
                 } else if (modeStr == "EYES") {
                     mode = EYES;
+                } else if (modeStr == "RANDOM") {
+                    mode = RANDOM;
                 }
             }
-            // else if (command == "ON") {
-            //   breathingMode = false;
-            //   fill_solid(leds[0], NUM_LEDS_PER_STRIP, CRGB::White);
-            // }
-            // else if (command == "OFF") {
-            //   breathingMode = false;
-            //   fill_solid(leds[0], NUM_LEDS_PER_STRIP, CRGB::Black);
-            // }
-            // else if (command == "BREATH") {
-            //   breathingMode = true;
-            // }
-
             FastLED.show();
         }
     }
@@ -164,6 +155,14 @@ void updateEyes() {
     leds[LEFT_EYE][step] = CRGB::White;
 }
 
+void updateRandom() {
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        for (int k = 0; k < NUM_LEDS_PER_STRIP; k++) {
+            leds[i][k] = CHSV(random(255), 155 + random(100), random(255));
+        }
+    }
+}
+
 void loop() {
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // Give the bluetooth stack time to get ready
@@ -178,6 +177,8 @@ void loop() {
 
     if (mode == EYES) {
         updateEyes();
+    } else if (mode == RANDOM) {
+        updateRandom();
     }
 
     FastLED.show();

@@ -101,7 +101,7 @@ function App() {
     }, [])
 
     const MODES = [
-        "SIMPLE", "EYES"
+        "SIMPLE", "EYES", "RANDOM"
     ];
 
     const ZONES = [{
