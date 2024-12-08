@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main  # or master, depending on your default branch name
+  workflow_dispatch:  # Enables manual trigger
 
 permissions:
   contents: read
