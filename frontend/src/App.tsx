@@ -161,29 +161,22 @@ function App() {
         <HexColorPicker onChange={(e) => setColor(e)} />
       </section>
 
-      <br />
-      <br />
+      {MODES.map((mode) => (
+        <button
+          key={mode}
+          className="button"
+          onClick={() => sendCommand(`MODE:${mode}`)}
+        >
+          {mode}
+        </button>
+      ))}
 
-      {MODES.map((mode) => {
-        return (
-          <button
-            key={mode}
-            className="button"
-            onClick={() => sendCommand(`MODE:${mode}`)}
-          >
-            {mode}
-          </button>
-        );
-      })}
-
-      {ZONES.map((zone) => {
-        return (
-          <section key={zone.id}>
-            <h1>{zone.name}</h1>
-            <HexColorPicker onChange={(e) => setStripColor(zone.id, e)} />
-          </section>
-        );
-      })}
+      {ZONES.map((zone) => (
+        <section key={zone.id}>
+          <h1>{zone.name}</h1>
+          <HexColorPicker onChange={(e) => setStripColor(zone.id, e)} />
+        </section>
+      ))}
     </div>
   );
 }
