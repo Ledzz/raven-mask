@@ -60,14 +60,15 @@ class MyServerCallbacks : public BLEServerCallbacks {
     }
 };
 
+void setLedColor(int stripIndex, int ledIndex, CRGB color) {
+    int value = (stripIndex == LEFT_EYE || stripIndex == RIGHT_EYE) ? 255 : 10;
+
+    currentConfig.leds[stripIndex][ledIndex] = color % value;
+}
 
 void setStripColor(int stripIndex, CRGB color) {
-    CRGB stripColor = color;
-    if (stripIndex != LEFT_EYE && stripIndex != RIGHT_EYE) {
-        stripColor.nscale8(25);
-    }
     for (int k = 0; k < LED_COUNTS[stripIndex]; k++) {
-        currentConfig.leds[stripIndex][k] = stripColor;
+        setLedColor(stripIndex, k, color);
     }
 }
 
@@ -146,13 +147,13 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 
 void solid() {
     for (int i = 0; i < NUM_STRIPS; i++) {
-        int value = (i == LEFT_EYE || i == RIGHT_EYE) ? 255 : 20;
         int color = (i == LEFT_EYE || i == RIGHT_EYE) ? 0 : 160;
         for (int k = 0; k < LED_COUNTS[i]; k++) {
-            currentConfig.leds[i][k] = CHSV(color, 255, value);
+            setLedColor(i, k, CHSV(color, 255, 255));
         }
     }
 }
+
 
 
 void setup() {
