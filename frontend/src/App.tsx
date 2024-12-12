@@ -1,5 +1,5 @@
 import "./App.css";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { ZONES } from "./zones.ts";
 import { Zoned } from "./Zoned.tsx";
@@ -12,7 +12,16 @@ const log = console.log;
 
 const MODES = ["SIMPLE", "EYES", "RANDOM"];
 
+interface Config {
+  mode: string;
+  strips: string[][];
+}
+
 function App() {
+  const [currentConfig, setCurrentConfig] = useState<Config>({
+    mode: "SIMPLE",
+    strips: [],
+  });
   const autoConnect = useCallback(async () => {
     try {
       log("Getting existing permitted Bluetooth devices...");
@@ -33,12 +42,11 @@ function App() {
     if (!characteristic) return;
 
     try {
+      await characteristic.startNotifications();
       // Send command to request config
-      const encoder = new TextEncoder();
-      await characteristic.writeValue(encoder.encode("GET_CONFIG"));
+      await sendCommand("GET_CONFIG");
 
       // Set up notification listener for the response
-      await characteristic.startNotifications();
       characteristic.addEventListener("characteristicvaluechanged", (event) => {
         const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
         if (value) {
@@ -46,7 +54,7 @@ function App() {
           const configString = decoder.decode(value);
           try {
             const config = JSON.parse(configString);
-            // setCurrentConfig(config);
+            setCurrentConfig(config);
             log("Received configuration:", config);
           } catch (e) {
             log("Error parsing configuration:", e);
@@ -119,6 +127,7 @@ function App() {
   }, [autoConnect]);
 
   const sendCommand = useCallback(async (command: string) => {
+    console.log("Send Command:", command);
     if (characteristic) {
       const encoder = new TextEncoder();
       await characteristic.writeValue(encoder.encode(command));
@@ -147,7 +156,6 @@ function App() {
     },
     [sendCommand],
   );
-
   return (
     <div>
       <div id="status">Not Connected</div>
@@ -174,12 +182,20 @@ function App() {
         </button>
       ))}
 
-      {ZONES.map((zone) => (
-        <section key={zone.id}>
-          <h1>{zone.name}</h1>
-          <HexColorPicker onChange={(e) => setStripColor(zone.id, e)} />
-        </section>
-      ))}
+      {ZONES.map((zone) => {
+        console.log(currentConfig.strips?.[zone.id]);
+        return (
+          <section key={zone.id}>
+            <h1>
+              {zone.name} {currentConfig.strips?.[zone.id]?.[0]}
+            </h1>
+            <HexColorPicker
+              color={currentConfig.strips?.[zone.id]?.[0]}
+              onChange={(e) => setStripColor(zone.id, e)}
+            />
+          </section>
+        );
+      })}
     </div>
   );
 }
