@@ -71,3 +71,9 @@ button:focus-visible {
 h1 {
   font-size: 1rem;
 }
+
+.zones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}

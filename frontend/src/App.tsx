@@ -1,6 +1,8 @@
 import "./App.css";
 import { useCallback, useEffect, useRef } from "react";
 import { HexColorPicker } from "react-colorful";
+import { ZONES } from "./zones.ts";
+import { Zoned } from "./Zoned.tsx";
 
 let characteristic: BluetoothRemoteGATTCharacteristic | undefined;
 const serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -9,45 +11,6 @@ const characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 const log = console.log;
 
 const MODES = ["SIMPLE", "EYES", "RANDOM"];
-
-const ZONES = [
-  {
-    id: 0,
-    name: "висок верх",
-  },
-  {
-    id: 1,
-    name: "брови",
-  },
-  {
-    id: 2,
-    name: "лоб",
-  },
-  {
-    id: 3,
-    name: "левый глаз",
-  },
-  {
-    id: 4,
-    name: "подбородок",
-  },
-  {
-    id: 5,
-    name: "клюв",
-  },
-  {
-    id: 6,
-    name: "щека",
-  },
-  {
-    id: 7,
-    name: "правый глаз",
-  },
-  {
-    id: 8,
-    name: "висок",
-  },
-];
 
 function App() {
   const autoConnect = useCallback(async () => {
@@ -131,22 +94,28 @@ function App() {
     }
   }, []);
 
-  const setColor = useCallback(async (color: string) => {
-    if (characteristic) {
-      const command = "COLOR:" + color.substring(1);
-      const encoder = new TextEncoder();
-      await characteristic.writeValue(encoder.encode(command));
-    }
-  }, []);
+  const setColor = useCallback(
+    (color: string) => {
+      return sendCommand("COLOR:" + color.substring(1));
+    },
+    [sendCommand],
+  );
 
-  const setStripColor = useCallback(async (strip: number, color: string) => {
-    const command = "SCOLOR:" + strip + ":" + color.substring(1);
+  const setStripColor = useCallback(
+    (strip: number, color: string) => {
+      return sendCommand("SCOLOR:" + strip + ":" + color.substring(1));
+    },
+    [sendCommand],
+  );
 
-    if (characteristic) {
-      const encoder = new TextEncoder();
-      await characteristic.writeValue(encoder.encode(command));
-    }
-  }, []);
+  const setMaskedColor = useCallback(
+    (mask: number, color: string) => {
+      return sendCommand(
+        "MCOLOR:" + mask.toString().padStart(3, "0") + ":" + color.substring(1),
+      );
+    },
+    [sendCommand],
+  );
 
   return (
     <div>
@@ -156,6 +125,9 @@ function App() {
       </button>
       <br />
       <br />
+      <section>
+        <Zoned setMaskedColor={setMaskedColor} />
+      </section>
       <section>
         <h1>Все вместе</h1>
         <HexColorPicker onChange={(e) => setColor(e)} />
