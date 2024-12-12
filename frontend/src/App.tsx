@@ -29,6 +29,35 @@ function App() {
     }
   }, []);
 
+  const readConfiguration = useCallback(async () => {
+    if (!characteristic) return;
+
+    try {
+      // Send command to request config
+      const encoder = new TextEncoder();
+      await characteristic.writeValue(encoder.encode("GET_CONFIG"));
+
+      // Set up notification listener for the response
+      await characteristic.startNotifications();
+      characteristic.addEventListener("characteristicvaluechanged", (event) => {
+        const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
+        if (value) {
+          const decoder = new TextDecoder();
+          const configString = decoder.decode(value);
+          try {
+            const config = JSON.parse(configString);
+            // setCurrentConfig(config);
+            log("Received configuration:", config);
+          } catch (e) {
+            log("Error parsing configuration:", e);
+          }
+        }
+      });
+    } catch (error) {
+      log("Error reading configuration:", error);
+    }
+  }, []);
+
   const connectToDevice = useCallback(async (device: BluetoothDevice) => {
     const abortController = new AbortController();
 
@@ -46,6 +75,8 @@ function App() {
           const service = await server?.getPrimaryService(serviceUuid);
           characteristic = await service?.getCharacteristic(characteristicUuid);
           document.getElementById("status").textContent = "Connected!";
+
+          await readConfiguration();
         } catch (error) {
           log("Argh! " + error);
         }
