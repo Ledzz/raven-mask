@@ -4,6 +4,7 @@ import { HexColorPicker } from "react-colorful";
 import { ZONES } from "./zones.ts";
 import { Zoned } from "./Zoned.tsx";
 import { MODES } from "./modes.ts";
+import { Picker } from "./Picker.tsx";
 
 let characteristic: BluetoothRemoteGATTCharacteristic | undefined;
 const serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -178,17 +179,21 @@ function App() {
         return (
           <section key={zone.id}>
             <h1>{zone.name}</h1>
-            <HexColorPicker
-              color={currentConfig.strips?.[zone.id]?.color}
-              onChange={noop}
-            />
-            <input
-              type="range"
-              min={0}
-              max={255}
-              step={1}
-              value={currentConfig.strips?.[zone.id]?.brightness}
-            />
+
+            {currentConfig.strips?.[zone.id] ? (
+              <Picker
+                value={currentConfig.strips?.[zone.id]}
+                onChange={(value) => {
+                  const mask = 1 << zone.id;
+                  sendMaskCommand(
+                    mask,
+                    value.color,
+                    value.brightness,
+                    value.mode,
+                  );
+                }}
+              />
+            ) : null}
           </section>
         );
       })}

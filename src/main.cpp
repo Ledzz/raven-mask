@@ -203,8 +203,13 @@ String getConfigJson() {
         JsonObject strip = stripsArray.createNestedObject();
         strip["color"] = rgbToCompactHex(currentConfig.strips[i].color);
         strip["brightness"] = currentConfig.strips[i].brightness;
-        strip["mode"] = currentConfig.strips[i].mode;
-    }
+        String modeStr;
+        switch(currentConfig.strips[i].mode) {
+            case SIMPLE: modeStr = "SIMPLE"; break;
+            case NOISE: modeStr = "NOISE"; break;
+            default: modeStr = "SIMPLE";
+        }
+        strip["mode"] = modeStr;    }
 
     String jsonString;
     serializeJson(doc, jsonString);
