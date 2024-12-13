@@ -153,22 +153,6 @@ class MyServerCallbacks : public BLEServerCallbacks {
     }
 };
 
-// void setLedColor(int stripIndex, int ledIndex, CRGB color) {
-//     int value = (stripIndex == LEFT_EYE || stripIndex == RIGHT_EYE) ? 255 : 10;
-//
-//     leds[stripIndex][ledIndex] = color % value;
-// }
-//
-void setStripColor(int stripIndex, CRGB color) {
-    currentConfig.strips[stripIndex].color = color;
-    saveConfig();
-}
-
-//
-// void setStripColor(int stripIndex, CRGB color) {
-//     currentConfig.strips[stripIndex].color = color;
-// }
-
 String rgbToCompactHex(CRGB color) {
     char hex[7];
     sprintf(hex, "%02x%02x%02x", color.r, color.g, color.b);
@@ -181,10 +165,6 @@ String getConfigJson() {
     // Add colors for each strip and LED
     JsonArray stripsArray = doc.createNestedArray("strips");
     for (int i = 0; i < NUM_STRIPS; i++) {
-        // JsonArray ledsArray = stripsArray.createNestedArray();
-        // for(int j = 0; j < LED_COUNTS[i]; j++) {
-        //     ledsArray.add(rgbToCompactHex(currentConfig.leds[i][j]));
-        // }
         JsonObject strip = stripsArray.createNestedObject();
         strip["color"] = rgbToCompactHex(currentConfig.strips[i].color);
         strip["brightness"] = currentConfig.strips[i].brightness;
@@ -238,7 +218,7 @@ void handleMaskCommand(const String &command) {
         }
     }
 
-    saveConfig();
+    // saveConfig();
 }
 
 
@@ -254,21 +234,6 @@ class MyCallbacks : public BLECharacteristicCallbacks {
                 pCharacteristic->notify();
             } else if (command.startsWith("MASK:")) {
                 handleMaskCommand(command);
-            } else if (command.startsWith("SCOLOR:")) {
-                int stripIndex = command.substring(7, 8).toInt();
-                String hexColor = command.substring(9);
-                long number = strtol(hexColor.c_str(), NULL, 16);
-                CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
-                setStripColor(stripIndex, color);
-            } else if (command.startsWith("MODE:")) {
-                String modeStr = command.substring(5);
-                if (modeStr == "SIMPLE") {
-                    mode = SIMPLE;
-                } else if (modeStr == "EYES") {
-                    mode = EYES;
-                } else if (modeStr == "RANDOM") {
-                    mode = RANDOM;
-                }
             }
             FastLED.show();
         }
@@ -283,7 +248,7 @@ void solid() {
         }
     }
 
-    saveConfig();
+    // saveConfig();
 }
 
 

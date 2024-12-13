@@ -134,20 +134,6 @@ function App() {
     }
   }, []);
 
-  const setColor = useCallback(
-    (color: string) => {
-      return sendCommand("COLOR:" + color.substring(1));
-    },
-    [sendCommand],
-  );
-
-  const setStripColor = useCallback(
-    (strip: number, color: string) => {
-      return sendCommand("SCOLOR:" + strip + ":" + color.substring(1));
-    },
-    [sendCommand],
-  );
-
   const sendMaskCommand = useCallback(
     (bitmask: number, color: string, brightness: number, mode: string) => {
       // Convert color from hex (#RRGGBB) to numbers
@@ -176,7 +162,7 @@ function App() {
       </section>
       <section>
         <h1>Все вместе</h1>
-        <HexColorPicker onChange={(e) => setColor(e)} />
+        <HexColorPicker onChange={noop} />
       </section>
 
       {MODES.map((mode) => (
@@ -195,7 +181,7 @@ function App() {
             <h1>{zone.name}</h1>
             <HexColorPicker
               color={currentConfig.strips?.[zone.id]?.color}
-              onChange={(e) => setStripColor(zone.id, e)}
+              onChange={noop}
             />
             <input
               type="range"
@@ -210,5 +196,5 @@ function App() {
     </div>
   );
 }
-
+function noop() {}
 export default App;
