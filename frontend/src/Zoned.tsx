@@ -3,9 +3,17 @@ import { FC, useState } from "react";
 import { ZONES } from "./zones.ts";
 
 export const Zoned: FC<{
-  setMaskedColor: (mask: number, color: string) => void;
-}> = ({ setMaskedColor }) => {
+  setMaskedColor: (
+    mask: number,
+    color: string,
+    brightness: number,
+    mode: string,
+  ) => void;
+}> = ({ currentConfig, setMaskedColor }) => {
   const [mask, setMask] = useState(0);
+  const [color, setColor] = useState("#ff0000");
+
+  const [brightness, setBrightness] = useState(20);
 
   return (
     <>
@@ -21,7 +29,23 @@ export const Zoned: FC<{
           </label>
         ))}
       </div>
-      <HexColorPicker onChange={(e) => setMaskedColor(mask, e)} />
+      <HexColorPicker
+        onChange={(e) => {
+          setColor(e);
+          setMaskedColor(mask, e, brightness, "SIMPLE");
+        }}
+      />
+      <input
+        type="range"
+        min={0}
+        max={255}
+        step={1}
+        value={brightness}
+        onChange={(e) => {
+          setBrightness(e.target.value);
+          setMaskedColor(mask, color, e.target.value, "SIMPLE");
+        }}
+      />
     </>
   );
 };

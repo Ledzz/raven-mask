@@ -14,7 +14,7 @@ const MODES = ["SIMPLE", "EYES", "RANDOM"];
 
 interface Config {
   mode: string;
-  strips: string[][];
+  strips: { color: string; mode: number; brightness: number }[];
 }
 
 function App() {
@@ -148,14 +148,21 @@ function App() {
     [sendCommand],
   );
 
-  const setMaskedColor = useCallback(
-    (mask: number, color: string) => {
-      return sendCommand(
-        "MCOLOR:" + mask.toString().padStart(3, "0") + ":" + color.substring(1),
-      );
+  const sendMaskCommand = useCallback(
+    (bitmask: number, color: string, brightness: number, mode: string) => {
+      // Convert color from hex (#RRGGBB) to numbers
+      const r = parseInt(color.substr(1, 2), 16);
+      const g = parseInt(color.substr(3, 2), 16);
+      const b = parseInt(color.substr(5, 2), 16);
+
+      // Format: MASK:bitmask:RRGGBB:brightness:mode
+      const command = `MASK:${bitmask.toString().padStart(3, "0")}:${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}:${brightness}:${mode}`;
+
+      return sendCommand(command);
     },
-    [sendCommand],
+    [],
   );
+
   return (
     <div>
       <div id="status">Not Connected</div>
@@ -165,7 +172,7 @@ function App() {
       <br />
       <br />
       <section>
-        <Zoned setMaskedColor={setMaskedColor} />
+        <Zoned currentConfig={currentConfig} setMaskedColor={sendMaskCommand} />
       </section>
       <section>
         <h1>Все вместе</h1>
@@ -183,15 +190,19 @@ function App() {
       ))}
 
       {ZONES.map((zone) => {
-        console.log(currentConfig.strips?.[zone.id]);
         return (
           <section key={zone.id}>
-            <h1>
-              {zone.name} {currentConfig.strips?.[zone.id]?.[0]}
-            </h1>
+            <h1>{zone.name}</h1>
             <HexColorPicker
-              color={currentConfig.strips?.[zone.id]?.[0]}
+              color={currentConfig.strips?.[zone.id]?.color}
               onChange={(e) => setStripColor(zone.id, e)}
+            />
+            <input
+              type="range"
+              min={0}
+              max={255}
+              step={1}
+              value={currentConfig.strips?.[zone.id]?.brightness}
             />
           </section>
         );

@@ -6,6 +6,10 @@
 #include <BLE2902.h>
 #include <ArduinoJson.h>
 #include <map>
+#include <Preferences.h>
+
+Preferences preferences;
+
 
 // FastLED settings
 #define LED_TYPE WS2812B
@@ -45,10 +49,99 @@ MODE mode = SIMPLE;
 BLEServer *pServer = NULL;
 BLECharacteristic *pCharacteristic = NULL;
 
-struct Config {
+
+struct StripConfig {
+    CRGB color;
+    int brightness = 20;
     MODE mode = SIMPLE;
-    CRGB leds[NUM_STRIPS][MAX_NUM_LEDS_PER_STRIP];
-} currentConfig;
+
+    StripConfig(CRGB c) : color(c) {
+    }
+};
+
+struct Config {
+    StripConfig strips[NUM_STRIPS];
+} currentConfig = {
+    {
+        {CRGB::Red},
+        {CRGB::Green},
+        {CRGB::Blue},
+        {CRGB::White},
+        {CRGB::Yellow},
+        {CRGB::Purple},
+        {CRGB::Orange},
+        {CRGB::Pink},
+        {CRGB::Cyan}
+    }
+};
+
+CRGB leds[NUM_STRIPS][MAX_NUM_LEDS_PER_STRIP];
+
+void saveConfig() {
+    preferences.begin("ledmask", false);
+
+    // Save each strip's configuration
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        char keyColor[16];
+        char keyBright[16];
+        char keyMode[16];
+
+        sprintf(keyColor, "color_%d", i);
+        sprintf(keyBright, "bright_%d", i);
+        sprintf(keyMode, "mode_%d", i);
+
+        // Save color as 32-bit integer (RGB)
+        uint32_t color = (uint32_t) currentConfig.strips[i].color.r << 16 |
+                         (uint32_t) currentConfig.strips[i].color.g << 8 |
+                         (uint32_t) currentConfig.strips[i].color.b;
+
+        preferences.putUInt(keyColor, color);
+        preferences.putInt(keyBright, currentConfig.strips[i].brightness);
+        preferences.putUChar(keyMode, (uint8_t) currentConfig.strips[i].mode);
+    }
+
+    preferences.end();
+    Serial.println("Config saved!");
+}
+
+
+void loadConfig() {
+    preferences.begin("ledmask", true); // true = readonly
+
+    // Load each strip's configuration
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        char keyColor[16];
+        char keyBright[16];
+        char keyMode[16];
+
+        sprintf(keyColor, "color_%d", i);
+        sprintf(keyBright, "bright_%d", i);
+        sprintf(keyMode, "mode_%d", i);
+
+        // Get color as 32-bit integer (RGB)
+        uint32_t color = preferences.getUInt(keyColor, 0); // default to black
+
+        currentConfig.strips[i].color.r = (color >> 16) & 0xFF;
+        currentConfig.strips[i].color.g = (color >> 8) & 0xFF;
+        currentConfig.strips[i].color.b = color & 0xFF;
+
+        currentConfig.strips[i].brightness = preferences.getInt(keyBright, 20); // default brightness
+        currentConfig.strips[i].mode = (MODE) preferences.getUChar(keyMode, SIMPLE); // default mode
+    }
+
+    preferences.end();
+    Serial.println("Config loaded!");
+}
+
+void updateLeds() {
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        if (currentConfig.strips[i].mode == SIMPLE) {
+            for (int j = 0; j < LED_COUNTS[i]; j++) {
+                leds[i][j] = currentConfig.strips[i].color % currentConfig.strips[i].brightness;
+            }
+        }
+    }
+}
 
 class MyServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer *pServer) {
@@ -60,17 +153,21 @@ class MyServerCallbacks : public BLEServerCallbacks {
     }
 };
 
-void setLedColor(int stripIndex, int ledIndex, CRGB color) {
-    int value = (stripIndex == LEFT_EYE || stripIndex == RIGHT_EYE) ? 255 : 10;
-
-    currentConfig.leds[stripIndex][ledIndex] = color % value;
-}
-
+// void setLedColor(int stripIndex, int ledIndex, CRGB color) {
+//     int value = (stripIndex == LEFT_EYE || stripIndex == RIGHT_EYE) ? 255 : 10;
+//
+//     leds[stripIndex][ledIndex] = color % value;
+// }
+//
 void setStripColor(int stripIndex, CRGB color) {
-    for (int k = 0; k < LED_COUNTS[stripIndex]; k++) {
-        setLedColor(stripIndex, k, color);
-    }
+    currentConfig.strips[stripIndex].color = color;
+    saveConfig();
 }
+
+//
+// void setStripColor(int stripIndex, CRGB color) {
+//     currentConfig.strips[stripIndex].color = color;
+// }
 
 String rgbToCompactHex(CRGB color) {
     char hex[7];
@@ -81,28 +178,67 @@ String rgbToCompactHex(CRGB color) {
 String getConfigJson() {
     StaticJsonDocument<600> doc;
 
-    // Add current mode
-    switch (currentConfig.mode) {
-        case SIMPLE: doc["mode"] = "SIMPLE";
-            break;
-        case EYES: doc["mode"] = "EYES";
-            break;
-        case RANDOM: doc["mode"] = "RANDOM";
-            break;
-    }
-
     // Add colors for each strip and LED
     JsonArray stripsArray = doc.createNestedArray("strips");
-    for(int i = 0; i < NUM_STRIPS; i++) {
-        JsonArray ledsArray = stripsArray.createNestedArray();
-        for(int j = 0; j < LED_COUNTS[i]; j++) {
-            ledsArray.add(rgbToCompactHex(currentConfig.leds[i][j]));
-        }
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        // JsonArray ledsArray = stripsArray.createNestedArray();
+        // for(int j = 0; j < LED_COUNTS[i]; j++) {
+        //     ledsArray.add(rgbToCompactHex(currentConfig.leds[i][j]));
+        // }
+        JsonObject strip = stripsArray.createNestedObject();
+        strip["color"] = rgbToCompactHex(currentConfig.strips[i].color);
+        strip["brightness"] = currentConfig.strips[i].brightness;
+        strip["mode"] = currentConfig.strips[i].mode;
     }
 
     String jsonString;
     serializeJson(doc, jsonString);
     return jsonString;
+}
+
+void handleMaskCommand(const String &command) {
+    // Expected format: MASK:bitmask:RRGGBB:brightness:mode
+    int firstColon = command.indexOf(':');
+    int secondColon = command.indexOf(':', firstColon + 1);
+    int thirdColon = command.indexOf(':', secondColon + 1);
+    int fourthColon = command.indexOf(':', thirdColon + 1);
+
+    if (firstColon == -1 || secondColon == -1 || thirdColon == -1 || fourthColon == -1) {
+        Serial.println("Invalid command format");
+        return;
+    }
+
+    // Parse bitmask (which strips to update)
+    int bitmask = command.substring(firstColon + 1, secondColon).toInt();
+
+    // Parse color
+    String hexColor = command.substring(secondColon + 1, thirdColon);
+    uint32_t colorNum = strtol(hexColor.c_str(), NULL, 16);
+    CRGB color = CRGB(
+        (colorNum >> 16) & 0xFF,
+        (colorNum >> 8) & 0xFF,
+        colorNum & 0xFF
+    );
+
+    // Parse brightness
+    int brightness = command.substring(thirdColon + 1, fourthColon).toInt();
+
+    // Parse mode
+    String modeStr = command.substring(fourthColon + 1);
+    MODE newMode = SIMPLE;
+    if (modeStr == "EYES") newMode = EYES;
+    else if (modeStr == "RANDOM") newMode = RANDOM;
+
+    // Update strips based on bitmask
+    for (int i = 0; i < NUM_STRIPS; i++) {
+        if (bitmask & (1 << i)) {
+            currentConfig.strips[i].color = color;
+            currentConfig.strips[i].brightness = brightness;
+            currentConfig.strips[i].mode = newMode;
+        }
+    }
+
+    saveConfig();
 }
 
 
@@ -116,14 +252,8 @@ class MyCallbacks : public BLECharacteristicCallbacks {
                 String config = getConfigJson();
                 pCharacteristic->setValue(config.c_str());
                 pCharacteristic->notify();
-            } else if (command.startsWith("COLOR:")) {
-                String hexColor = command.substring(6);
-                long number = strtol(hexColor.c_str(), NULL, 16);
-                CRGB color = CRGB(number >> 16, (number >> 8) & 0xFF, number & 0xFF);
-
-                for (int i = 0; i < NUM_STRIPS; i++) {
-                    setStripColor(i, color);
-                }
+            } else if (command.startsWith("MASK:")) {
+                handleMaskCommand(command);
             } else if (command.startsWith("SCOLOR:")) {
                 int stripIndex = command.substring(7, 8).toInt();
                 String hexColor = command.substring(9);
@@ -149,26 +279,28 @@ void solid() {
     for (int i = 0; i < NUM_STRIPS; i++) {
         int color = (i == LEFT_EYE || i == RIGHT_EYE) ? 0 : 160;
         for (int k = 0; k < LED_COUNTS[i]; k++) {
-            setLedColor(i, k, CHSV(color, 255, 255));
+            currentConfig.strips[i].color = CHSV(color, 255, 255);
         }
     }
-}
 
+    saveConfig();
+}
 
 
 void setup() {
     Serial.begin(115200);
+    loadConfig();
 
     // C++ template needs to have value at compile time so we can't use loop
-    FastLED.addLeds<WS2812B, 1, GRB>(currentConfig.leds[0], LED_COUNTS[0]);
-    FastLED.addLeds<WS2812B, 2, GRB>(currentConfig.leds[1], LED_COUNTS[1]);
-    FastLED.addLeds<WS2812B, 3, GRB>(currentConfig.leds[2], LED_COUNTS[2]);
-    FastLED.addLeds<WS2812B, 4, GRB>(currentConfig.leds[3], LED_COUNTS[3]);
-    FastLED.addLeds<WS2812B, 5, GRB>(currentConfig.leds[4], LED_COUNTS[4]);
-    FastLED.addLeds<WS2812B, 6, GRB>(currentConfig.leds[5], LED_COUNTS[5]);
-    FastLED.addLeds<WS2812B, 7, GRB>(currentConfig.leds[6], LED_COUNTS[6]);
-    FastLED.addLeds<WS2812B, 8, GRB>(currentConfig.leds[7], LED_COUNTS[7]);
-    FastLED.addLeds<WS2812B, 9, GRB>(currentConfig.leds[8], LED_COUNTS[8]);
+    FastLED.addLeds<WS2812B, 1, GRB>(leds[0], LED_COUNTS[0]);
+    FastLED.addLeds<WS2812B, 2, GRB>(leds[1], LED_COUNTS[1]);
+    FastLED.addLeds<WS2812B, 3, GRB>(leds[2], LED_COUNTS[2]);
+    FastLED.addLeds<WS2812B, 4, GRB>(leds[3], LED_COUNTS[3]);
+    FastLED.addLeds<WS2812B, 5, GRB>(leds[4], LED_COUNTS[4]);
+    FastLED.addLeds<WS2812B, 6, GRB>(leds[5], LED_COUNTS[5]);
+    FastLED.addLeds<WS2812B, 7, GRB>(leds[6], LED_COUNTS[6]);
+    FastLED.addLeds<WS2812B, 8, GRB>(leds[7], LED_COUNTS[7]);
+    FastLED.addLeds<WS2812B, 9, GRB>(leds[8], LED_COUNTS[8]);
 
     // Initialize BLE
     BLEDevice::init("Ledzz mask");
@@ -183,7 +315,7 @@ void setup() {
         BLECharacteristic::PROPERTY_NOTIFY
     );
 
-    pCharacteristic->addDescriptor(new BLE2902());  // Required for notifications
+    pCharacteristic->addDescriptor(new BLE2902()); // Required for notifications
     pCharacteristic->setCallbacks(new MyCallbacks());
     pService->start();
 
@@ -197,28 +329,28 @@ void setup() {
 
     Serial.println("BLE LED Control Ready!");
 
-    solid();
+    // solid();
 }
 
 
-void updateEyes() {
-    int LED_PER_EYE = 5;
-    int step = (millis() / 100) % LED_PER_EYE;
-    for (int k = 0; k < LED_PER_EYE; k++) {
-        currentConfig.leds[RIGHT_EYE][k] = CRGB::Black;
-        currentConfig.leds[LEFT_EYE][k] = CRGB::Black;
-    }
-    currentConfig.leds[RIGHT_EYE][step] = CRGB::White;
-    currentConfig.leds[LEFT_EYE][step] = CRGB::White;
-}
+// void updateEyes() {
+//     int LED_PER_EYE = 5;
+//     int step = (millis() / 100) % LED_PER_EYE;
+//     for (int k = 0; k < LED_PER_EYE; k++) {
+//         currentConfig.leds[RIGHT_EYE][k] = CRGB::Black;
+//         currentConfig.leds[LEFT_EYE][k] = CRGB::Black;
+//     }
+//     currentConfig.leds[RIGHT_EYE][step] = CRGB::White;
+//     currentConfig.leds[LEFT_EYE][step] = CRGB::White;
+// }
 
-void updateRandom() {
-    for (int i = 0; i < NUM_STRIPS; i++) {
-        for (int k = 0; k < LED_COUNTS[i]; k++) {
-            currentConfig.leds[i][k] = CHSV(random(255), 155 + random(100), random(255));
-        }
-    }
-}
+// void updateRandom() {
+// for (int i = 0; i < NUM_STRIPS; i++) {
+// for (int k = 0; k < LED_COUNTS[i]; k++) {
+// currentConfig.leds[i][k] = CHSV(random(255), 155 + random(100), random(255));
+// }
+// }
+// }
 
 void loop() {
     if (!deviceConnected && oldDeviceConnected) {
@@ -232,12 +364,12 @@ void loop() {
         oldDeviceConnected = deviceConnected;
     }
 
-    if (mode == EYES) {
-        updateEyes();
-    } else if (mode == RANDOM) {
-        updateRandom();
-    }
-
+    // if (mode == EYES) {
+    // updateEyes();
+    // } else if (mode == RANDOM) {
+    // updateRandom();
+    // }
+    updateLeds();
     FastLED.show();
     delay(10);
 }
