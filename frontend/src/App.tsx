@@ -3,14 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { HexColorPicker } from "react-colorful";
 import { ZONES } from "./zones.ts";
 import { Zoned } from "./Zoned.tsx";
+import { MODES } from "./modes.ts";
 
 let characteristic: BluetoothRemoteGATTCharacteristic | undefined;
 const serviceUuid = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
 const log = console.log;
-
-const MODES = ["SIMPLE", "EYES", "RANDOM"];
 
 interface Config {
   mode: string;

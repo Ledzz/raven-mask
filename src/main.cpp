@@ -7,6 +7,7 @@
 #include <ArduinoJson.h>
 #include <map>
 #include <Preferences.h>
+#include <noise.h>
 
 Preferences preferences;
 
@@ -39,8 +40,7 @@ std::map<int, int> LED_COUNTS = {
 
 enum MODE {
     SIMPLE,
-    EYES,
-    RANDOM
+    NOISE
 };
 
 bool deviceConnected = false;
@@ -158,11 +158,21 @@ void loadConfig() {
     Serial.println("Config loaded!");
 }
 
+const float SPACE_SCALE = 0.2; // Controls how different nearby LEDs are
+const float TIME_SCALE = 0.01; // Controls animation speed
 void updateLeds() {
     for (int i = 0; i < NUM_STRIPS; i++) {
         if (currentConfig.strips[i].mode == SIMPLE) {
             for (int j = 0; j < LED_COUNTS[i]; j++) {
                 leds[i][j] = currentConfig.strips[i].color % currentConfig.strips[i].brightness;
+            }
+        } else if (currentConfig.strips[i].mode == NOISE) {
+            for (int j = 0; j < LED_COUNTS[i]; j++) {
+                float noise = noise2D(
+                    j * SPACE_SCALE, // Space coordinate (scaled position)
+                    millis() * TIME_SCALE // Time coordinate (scaled time)
+                );
+                leds[i][j] = currentConfig.strips[i].color % (currentConfig.strips[i].brightness * noise);
             }
         }
     }
@@ -231,8 +241,7 @@ void handleMaskCommand(const String &command) {
     // Parse mode
     String modeStr = command.substring(fourthColon + 1);
     MODE newMode = SIMPLE;
-    if (modeStr == "EYES") newMode = EYES;
-    else if (modeStr == "RANDOM") newMode = RANDOM;
+    if (modeStr == "NOISE") newMode = NOISE;
 
     // Update strips based on bitmask
     for (int i = 0; i < NUM_STRIPS; i++) {

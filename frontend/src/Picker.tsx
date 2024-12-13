@@ -1,5 +1,6 @@
 import { HexColorPicker } from "react-colorful";
 import { FC } from "react";
+import { MODES } from "./modes.ts";
 
 type Value = {
   color: string;
@@ -34,6 +35,21 @@ export const Picker: FC<{
           });
         }}
       />
+      <select
+        value={value.mode}
+        onChange={(e) => {
+          onChange({
+            ...value,
+            mode: e.target.value,
+          });
+        }}
+      >
+        {MODES.map((mode) => (
+          <option key={mode} value={mode}>
+            {mode}
+          </option>
+        ))}
+      </select>
     </>
   );
 };
