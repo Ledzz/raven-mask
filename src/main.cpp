@@ -49,6 +49,9 @@ MODE mode = SIMPLE;
 BLEServer *pServer = NULL;
 BLECharacteristic *pCharacteristic = NULL;
 
+unsigned long lastSaveTime = 0;
+const unsigned long SAVE_INTERVAL = 5000; // 5 seconds between saves
+bool needsSave = false;
 
 struct StripConfig {
     CRGB color;
@@ -78,30 +81,52 @@ struct Config {
 CRGB leds[NUM_STRIPS][MAX_NUM_LEDS_PER_STRIP];
 
 void saveConfig() {
-    preferences.begin("ledmask", false);
+    unsigned long currentTime = millis();
 
-    // Save each strip's configuration
-    for (int i = 0; i < NUM_STRIPS; i++) {
-        char keyColor[16];
-        char keyBright[16];
-        char keyMode[16];
+    // Set flag that we need to save
+    needsSave = true;
 
-        sprintf(keyColor, "color_%d", i);
-        sprintf(keyBright, "bright_%d", i);
-        sprintf(keyMode, "mode_%d", i);
-
-        // Save color as 32-bit integer (RGB)
-        uint32_t color = (uint32_t) currentConfig.strips[i].color.r << 16 |
-                         (uint32_t) currentConfig.strips[i].color.g << 8 |
-                         (uint32_t) currentConfig.strips[i].color.b;
-
-        preferences.putUInt(keyColor, color);
-        preferences.putInt(keyBright, currentConfig.strips[i].brightness);
-        preferences.putUChar(keyMode, (uint8_t) currentConfig.strips[i].mode);
+    // Check if enough time has passed since last save
+    if (currentTime - lastSaveTime < SAVE_INTERVAL) {
+        return; // Exit if not enough time has passed
     }
 
-    preferences.end();
-    Serial.println("Config saved!");
+    // Reset flag and update last save time
+    needsSave = false;
+    lastSaveTime = currentTime;
+
+    // Use try-catch to prevent crashes
+    try {
+        preferences.begin("ledmask", false);
+
+        // Save each strip's configuration
+        for (int i = 0; i < NUM_STRIPS; i++) {
+            char keyColor[16];
+            char keyBright[16];
+            char keyMode[16];
+
+            sprintf(keyColor, "color_%d", i);
+            sprintf(keyBright, "bright_%d", i);
+            sprintf(keyMode, "mode_%d", i);
+
+            uint32_t color = (uint32_t) currentConfig.strips[i].color.r << 16 |
+                             (uint32_t) currentConfig.strips[i].color.g << 8 |
+                             (uint32_t) currentConfig.strips[i].color.b;
+
+            preferences.putUInt(keyColor, color);
+            preferences.putInt(keyBright, currentConfig.strips[i].brightness);
+            preferences.putUChar(keyMode, (uint8_t) currentConfig.strips[i].mode);
+
+            // Give some time to the system
+            yield();
+        }
+
+        preferences.end();
+        Serial.println("Config saved!");
+    } catch (...) {
+        Serial.println("Error saving config");
+        preferences.end(); // Make sure we clean up
+    }
 }
 
 
@@ -218,7 +243,7 @@ void handleMaskCommand(const String &command) {
         }
     }
 
-    // saveConfig();
+    needsSave = true;
 }
 
 
@@ -239,17 +264,6 @@ class MyCallbacks : public BLECharacteristicCallbacks {
         }
     }
 };
-
-void solid() {
-    for (int i = 0; i < NUM_STRIPS; i++) {
-        int color = (i == LEFT_EYE || i == RIGHT_EYE) ? 0 : 160;
-        for (int k = 0; k < LED_COUNTS[i]; k++) {
-            currentConfig.strips[i].color = CHSV(color, 255, 255);
-        }
-    }
-
-    // saveConfig();
-}
 
 
 void setup() {
@@ -293,8 +307,6 @@ void setup() {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE LED Control Ready!");
-
-    // solid();
 }
 
 
@@ -329,11 +341,10 @@ void loop() {
         oldDeviceConnected = deviceConnected;
     }
 
-    // if (mode == EYES) {
-    // updateEyes();
-    // } else if (mode == RANDOM) {
-    // updateRandom();
-    // }
+    // Check if we need to save and enough time has passed
+    if (needsSave && (millis() - lastSaveTime >= SAVE_INTERVAL)) {
+        saveConfig();
+    }
     updateLeds();
     FastLED.show();
     delay(10);
