@@ -13,13 +13,11 @@ const characteristicUuid = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 const log = console.log;
 
 interface Config {
-  mode: string;
-  strips: { color: string; mode: number; brightness: number }[];
+  strips: { color: string; mode: string; brightness: number }[];
 }
 
 function App() {
   const [currentConfig, setCurrentConfig] = useState<Config>({
-    mode: "SIMPLE",
     strips: [],
   });
   const autoConnect = useCallback(async () => {
@@ -143,7 +141,14 @@ function App() {
 
       // Format: MASK:bitmask:RRGGBB:brightness:mode
       const command = `MASK:${bitmask.toString().padStart(3, "0")}:${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}:${brightness}:${mode}`;
-
+      setCurrentConfig((c) => ({
+        strips: c.strips.map((s, i) => {
+          if (bitmask & (1 << i)) {
+            return { color, brightness, mode };
+          }
+          return s;
+        }),
+      }));
       return sendCommand(command);
     },
     [],
@@ -159,10 +164,6 @@ function App() {
       <br />
       <section>
         <Zoned currentConfig={currentConfig} setMaskedColor={sendMaskCommand} />
-      </section>
-      <section>
-        <h1>Все вместе</h1>
-        <HexColorPicker onChange={noop} />
       </section>
 
       {MODES.map((mode) => (
